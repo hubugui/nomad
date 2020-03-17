@@ -127,25 +127,11 @@ func groupConnectHook(job *structs.Job, g *structs.TaskGroup) error {
 			// Canonicalize task since this mutator runs after job canonicalization
 			task.Canonicalize(job, g)
 
-			makePort := func(label string) {
-				// check that port hasn't already been defined before adding it to tg
-				for _, p := range g.Networks[0].DynamicPorts {
-					if p.Label == label {
-						return
-					}
-				}
-				g.Networks[0].DynamicPorts = append(g.Networks[0].DynamicPorts, structs.Port{
-					Label: label,
-					// -1 is a sentinel value to instruct the
-					// scheduler to map the host's dynamic port to
-					// the same port in the netns.
-					To: -1,
-				})
-			}
-
 			// create a port for the sidecar task's proxy port
-			makePort(fmt.Sprintf("%s-%s", structs.ConnectProxyPrefix, service.Name))
-			// todo(shoenig) magic port for 'expose.checks'
+			makePort(
+				fmt.Sprintf("%s-%s", structs.ConnectProxyPrefix, service.Name),
+				g.Networks,
+			)
 		}
 	}
 
