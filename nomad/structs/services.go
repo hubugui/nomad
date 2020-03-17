@@ -974,7 +974,8 @@ func (u *ConsulUpstream) Equals(o *ConsulUpstream) bool {
 
 // ExposeConfig represents a Consul Connect expose jobspec stanza.
 type ConsulExposeConfig struct {
-	Paths []ConsulExposePath
+	Checks bool
+	Paths  []ConsulExposePath
 }
 
 type ConsulExposePath struct {
@@ -1011,7 +1012,8 @@ func (e *ConsulExposeConfig) Copy() *ConsulExposeConfig {
 		paths[i] = e.Paths[i]
 	}
 	return &ConsulExposeConfig{
-		Paths: paths,
+		Checks: e.Checks,
+		Paths:  paths,
 	}
 }
 
@@ -1019,6 +1021,9 @@ func (e *ConsulExposeConfig) Copy() *ConsulExposeConfig {
 func (e *ConsulExposeConfig) Equals(o *ConsulExposeConfig) bool {
 	if e == nil || o == nil {
 		return e == o
+	}
+	if e.Checks != o.Checks {
+		return false
 	}
 	return exposePathsEqual(e.Paths, o.Paths)
 }

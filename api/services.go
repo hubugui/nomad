@@ -182,8 +182,8 @@ type ConsulUpstream struct {
 }
 
 type ConsulExposeConfig struct {
-	Path   []*ConsulExposePath `mapstructure:"path"`
 	Checks bool                `mapstructure:"checks"`
+	Path   []*ConsulExposePath `mapstructure:"path"`
 }
 
 type ConsulExposePath struct {
