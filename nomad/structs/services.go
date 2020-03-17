@@ -985,6 +985,10 @@ type ConsulExposePath struct {
 	ListenerPort  string
 }
 
+func (p *ConsulExposePath) String() string {
+	return fmt.Sprintf("<%s %s %d %s>", p.Protocol, p.Path, p.LocalPathPort, p.ListenerPort)
+}
+
 func exposePathsEqual(pathsA, pathsB []ConsulExposePath) bool {
 	if len(pathsA) != len(pathsB) {
 		return false

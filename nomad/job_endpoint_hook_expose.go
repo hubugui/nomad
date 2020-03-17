@@ -1,6 +1,8 @@
 package nomad
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 
 	"github.com/hashicorp/nomad/nomad/structs"
@@ -14,27 +16,36 @@ func (jobExposeHook) Name() string {
 }
 
 func (jobExposeHook) Mutate(job *structs.Job) (*structs.Job, []error, error) {
+	fmt.Printf("jeh.Mutate")
 	// create a port for each compatible consul service check, if expose.checks
 	// is enabled
 
-	// tbd: should we extrapolate expose paths here? or later?
-	// would we even have the necessary information in the consul sync path?
+	// tbd: We could potentially have done the extrapolation in the consul client
+	// code, closer to sync time. Would that be better?
 
-	// compat consul service check?
 	for _, tg := range job.TaskGroups {
-		if tgEnablesExpose(tg) {
-			for _, s := range tg.Services {
-				if serviceEnablesExposeChecks(s) {
-					// hmm
+		for _, s := range tg.Services {
+			if serviceEnablesExposeChecks(s) {
+				for _, check := range s.Checks {
+					// create an expose path for each check that is compatible
+					_, port := tg.Networks.Port(s.PortLabel)
+					if ePath := exposePathForCheck(port, check); ePath != nil {
+						fmt.Printf("epath: %s, service: %s\n", ePath, s.Name)
+						s.Connect.SidecarService.Proxy.Expose.Paths = append(
+							s.Connect.SidecarService.Proxy.Expose.Paths,
+							*ePath,
+						)
+					}
 				}
 			}
 		}
 	}
 
-	return nil, nil, nil
+	return job, nil, nil
 }
 
 func (jobExposeHook) Validate(job *structs.Job) ([]error, error) {
+	fmt.Printf("jeh.Validate")
 	// make sure expose config exists only along with a namespaced (bridge mode)
 	// network
 
@@ -47,6 +58,32 @@ func (jobExposeHook) Validate(job *structs.Job) ([]error, error) {
 	}
 
 	return nil, nil
+}
+
+// exposePathForCheck extrapolates the necessary expose path configuration for
+// the given consul service check. If the check is not compatible, nil is
+// returned instead.
+func exposePathForCheck(port int, check *structs.ServiceCheck) *structs.ConsulExposePath {
+	if !checkIsExposable(check) {
+		return nil
+	}
+	return &structs.ConsulExposePath{
+		Path:          check.Path,
+		Protocol:      check.Protocol,
+		LocalPathPort: port,
+		ListenerPort:  check.PortLabel,
+	}
+}
+
+func checkIsExposable(check *structs.ServiceCheck) bool {
+	switch {
+	case check.Protocol == "grpc":
+		return true
+	case check.Protocol == "http":
+		return true
+	default:
+		return false
+	}
 }
 
 func tgEnablesExpose(tg *structs.TaskGroup) bool {
