@@ -206,7 +206,7 @@ func TestStatus_HasClientConn(t *testing.T) {
 	// Create a connection on that node
 	s1.addNodeConn(&RPCContext{
 		NodeID: arg.NodeID,
-	})
+	}, &structs.QueryOptions{})
 	var out3 structs.NodeConnQueryResponse
 	require.Nil(msgpackrpc.CallWithCodec(codec, "Status.HasNodeConn", arg, &out3))
 	require.True(out3.Connected)

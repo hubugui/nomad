@@ -68,9 +68,9 @@ func (s *Server) connectedNodes() map[string]time.Time {
 }
 
 // addNodeConn adds the mapping between a node and its session.
-func (s *Server) addNodeConn(ctx *RPCContext) {
+func (s *Server) addNodeConn(ctx *RPCContext, args structs.RPCInfo) {
 	// Hotpath the no-op
-	if ctx == nil || ctx.NodeID == "" {
+	if ctx == nil || ctx.NodeID == "" || args.IsForwarded() {
 		return
 	}
 

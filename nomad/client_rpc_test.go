@@ -27,6 +27,33 @@ func (n namedConnWrapper) LocalAddr() net.Addr {
 	return namedAddr(n.name)
 }
 
+func TestServier_addNodeConn_ignoresForwardedRequests(t *testing.T) {
+	t.Parallel()
+
+	s, cleanupS1 := TestServer(t, nil)
+	defer cleanupS1()
+	testutil.WaitForLeader(t, s.RPC)
+
+	p, _ := net.Pipe()
+	nodeID := uuid.Generate()
+
+	ctx := &RPCContext{
+		Conn:   p,
+		NodeID: nodeID,
+	}
+
+	require.Empty(t, s.connectedNodes())
+
+	q := &structs.QueryOptions{}
+	q.Forwarded = true
+	s.addNodeConn(ctx, q)
+	require.Empty(t, s.connectedNodes())
+
+	s.addNodeConn(ctx, &structs.QueryOptions{})
+	require.Len(t, s.connectedNodes(), 1)
+	require.Contains(t, s.connectedNodes(), nodeID)
+}
+
 func TestServer_removeNodeConn_differentAddrs(t *testing.T) {
 	t.Parallel()
 	require := require.New(t)
@@ -56,8 +83,8 @@ func TestServer_removeNodeConn_differentAddrs(t *testing.T) {
 		NodeID: nodeID,
 	}
 
-	s1.addNodeConn(ctx1)
-	s1.addNodeConn(ctx2)
+	s1.addNodeConn(ctx1, &structs.QueryOptions{})
+	s1.addNodeConn(ctx2, &structs.QueryOptions{})
 	require.Len(s1.connectedNodes(), 1)
 	require.Len(s1.nodeConns[nodeID], 2)
 
@@ -140,7 +167,7 @@ func TestServerWithNodeConn_Path(t *testing.T) {
 	nodeID := uuid.Generate()
 	s2.addNodeConn(&RPCContext{
 		NodeID: nodeID,
-	})
+	}, &structs.QueryOptions{})
 
 	srv, err := s1.serverWithNodeConn(nodeID, s1.Region())
 	require.NotNil(srv)
@@ -166,7 +193,7 @@ func TestServerWithNodeConn_Path_Region(t *testing.T) {
 	nodeID := uuid.Generate()
 	s2.addNodeConn(&RPCContext{
 		NodeID: nodeID,
-	})
+	}, &structs.QueryOptions{})
 
 	srv, err := s1.serverWithNodeConn(nodeID, s2.Region())
 	require.NotNil(srv)
@@ -199,10 +226,10 @@ func TestServerWithNodeConn_Path_Newest(t *testing.T) {
 	nodeID := uuid.Generate()
 	s2.addNodeConn(&RPCContext{
 		NodeID: nodeID,
-	})
+	}, &structs.QueryOptions{})
 	s3.addNodeConn(&RPCContext{
 		NodeID: nodeID,
-	})
+	}, &structs.QueryOptions{})
 
 	srv, err := s1.serverWithNodeConn(nodeID, s1.Region())
 	require.NotNil(srv)
@@ -235,7 +262,7 @@ func TestServerWithNodeConn_PathAndErr(t *testing.T) {
 	nodeID := uuid.Generate()
 	s2.addNodeConn(&RPCContext{
 		NodeID: nodeID,
-	})
+	}, &structs.QueryOptions{})
 
 	// Shutdown the RPC layer for server 3
 	s3.rpcListener.Close()
